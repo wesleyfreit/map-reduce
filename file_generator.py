@@ -17,21 +17,21 @@ class FileGenerator:
         self.alphabet = alphabet
         self.min_size = min_size
         self.max_size = max_size
-        self.directory = "./public"
+        self.output_directory = "./out/files"
 
     def generate_random_word(self):
         length = random.randint(self.min_size, self.max_size)
         return "".join(random.choice(self.alphabet) for _ in range(length))
 
     def generate_file(self, i, words_per_file):
-        with open(f"{self.directory}/file{i+1}.txt", "w") as f:
+        with open(f"{self.output_directory}/file{i+1}.txt", "w") as f:
             for _ in range(words_per_file):
                 word = self.generate_random_word()
                 f.write(f"{word} ")
 
     def generate_files(self):
-        if not os.path.exists(self.directory):
-            os.makedirs(self.directory)
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
 
         words_per_file = self.n // self.split
         threads: list[threading.Thread] = []

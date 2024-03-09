@@ -14,3 +14,4 @@ map_reduce = MapReduce()
 
 file_gen.generate_files()
 map_reduce.run_map()
+map_reduce.run_reduce()
