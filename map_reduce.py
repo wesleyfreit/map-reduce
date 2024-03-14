@@ -58,7 +58,7 @@ class MapReduce:
 
         with open(output_file, "w") as f:
             for word, count in sorted(word_counts.items()):
-                f.write(f"{word}: {count}\n")
+                f.write(f"{word}: [{count}]\n")
 
     def run_map(self):
         threads: list[threading.Thread] = []
@@ -77,25 +77,41 @@ class MapReduce:
             thread.join()
 
     def run_reduce(self):
+        threads: list[threading.Thread] = []
+
+        for file in os.listdir(self.output_map_directory):
+            if file.endswith("-map-output.txt"):
+                thread = threading.Thread(
+                    target=self.reduce,
+                    args=(f"{self.output_map_directory}/{file}",)
+                )
+                threads.append(thread)
+                thread.start()
+
+        for thread in threads:
+            thread.join()
+
+    def run_reduce_files(self):
         combined_word_counts: dict = {}
         threads: list[threading.Thread] = []
 
         def process_file(file):
-            with open(f"{self.output_map_directory}/{file}", "r") as f:
+            with open(f"{file}", "r") as f:
                 for line in f:
                     word, counts_str = line.split(":")
-                    counts = list(map(
-                        int, counts_str.strip()[1:-1].split(","))
-                    )
-                    with self.lock:
-                        if word in combined_word_counts:
-                            combined_word_counts[word] += counts
-                        else:
-                            combined_word_counts[word] = counts
+                    count = int(counts_str.strip(" []\n"))
 
-        for file in os.listdir(self.output_map_directory):
-            if file.endswith("-map-output.txt"):
-                thread = threading.Thread(target=process_file, args=(file,))
+                    if word in combined_word_counts:
+                        combined_word_counts[word] += count
+                    else:
+                        combined_word_counts[word] = count
+
+        for file in os.listdir(self.output_reduce_directory):
+            if file.endswith("-reduce-output.txt"):
+                thread = threading.Thread(
+                    target=process_file,
+                    args=(f"{self.output_reduce_directory}/{file}",),
+                )
                 threads.append(thread)
                 thread.start()
 
@@ -103,9 +119,9 @@ class MapReduce:
             thread.join()
 
         output_file = os.path.join(
-            self.output_reduce_directory, "reduce-output.txt"
+            self.output_reduce_directory, "reduced-files-output.txt"
         )
 
         with open(output_file, "w") as f:
             for word, counts in sorted(combined_word_counts.items()):
-                f.write(f"{word}: [{sum(counts)}]\n")
+                f.write(f"{word}: [{counts}]\n")
