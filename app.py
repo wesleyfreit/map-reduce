@@ -4,7 +4,7 @@ from map_reduce import MapReduce
 
 file_gen = FileGenerator(
     4,
-    50000,
+    10,
     list(["a", "e", "o", "s", "r", "i", "n", "d", "m", "u"]),
     3,
     5,
@@ -12,7 +12,5 @@ file_gen = FileGenerator(
 
 map_reduce = MapReduce()
 
-file_gen.generate_files()
-map_reduce.run_map()
-map_reduce.run_reduce()
-map_reduce.run_reduce_files()
+file_gen.execute()
+map_reduce.execute()

@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 import os
 import threading
 
@@ -5,69 +6,58 @@ import threading
 class MapReduce:
 
     def __init__(self):
+        self.input_dict = "./out/dict.txt"
         self.input_directory = "./out/files"
         self.output_map_directory = "./out/map"
         self.output_reduce_directory = "./out/reduce"
-        self.lock = threading.Lock()
 
-    def map(self, file):
-        word_counts: dict = {}
-
+    def map(self, file: str, map_write: TextIOWrapper):
         with open(file, "r") as f:
             for line in f:
                 for word in line.split():
-                    if word in word_counts:
-                        word_counts[word].append(1)
-                    else:
-                        word_counts[word] = [1]
-        with self.lock:
-            if not os.path.exists(self.output_map_directory):
-                os.makedirs(self.output_map_directory)
+                    map_write.write(f"{word}: [1]\n")
 
-        filename, _ = os.path.splitext(os.path.basename(file))
+    def reduce(self, temp_map: str, reduce_write: TextIOWrapper):
+        combined_word_counts: dict = {}
 
-        output_file = os.path.join(
-            self.output_map_directory, filename + "-map-output.txt"
-        )
-
-        with open(output_file, "w") as f:
-            for word, counts in word_counts.items():
-                counts_str = ",".join(map(str, counts))
-                f.write(f"{word}: [{counts_str}]\n")
-
-    def reduce(self, file):
-        word_counts: dict = {}
-
-        with open(file, "r") as f:
+        with open(temp_map, "r") as f:
             for line in f:
-                word, counts_str = line.split(":")
-                counts = list(map(int, counts_str.strip()[1:-1].split(",")))
-                word_counts[word] = sum(counts)
+                word, count_str = line.split(":")
+                count = int(count_str.strip(" []\n"))
 
-        with self.lock:
-            if not os.path.exists(self.output_reduce_directory):
-                os.makedirs(self.output_reduce_directory)
+                if word in combined_word_counts:
+                    combined_word_counts[word] += count
+                else:
+                    combined_word_counts[word] = count
 
-        filename, _ = os.path.splitext(os.path.basename(file))
-
-        filename = filename.replace("-map-output", "")
-
-        output_file = os.path.join(
-            self.output_reduce_directory, filename + "-reduce-output.txt"
+        reduce_write.write(
+            "\n".join(
+                [
+                    f"{word}: [{count}]"
+                    for word, count in sorted(combined_word_counts.items())
+                ]
+            )
         )
 
-        with open(output_file, "w") as f:
-            for word, count in sorted(word_counts.items()):
-                f.write(f"{word}: [{count}]\n")
+    def execute(self):
+        if not os.path.exists(self.output_map_directory):
+            os.makedirs(self.output_map_directory)
 
-    def run_map(self):
         threads: list[threading.Thread] = []
+
+        temp_map = f"{self.output_map_directory}/temp_map.txt"
+
+        if os.path.exists(temp_map):
+            os.remove(temp_map)
+
+        map_write = open(temp_map, "a")
 
         for file in os.listdir(self.input_directory):
             if file.endswith(".txt"):
+                file = f"{self.input_directory}/{file}"
+
                 thread = threading.Thread(
-                    target=self.map,
-                    args=(f"{self.input_directory}/{file}",)
+                    target=self.map, args=(file, map_write)
                 )
 
                 threads.append(thread)
@@ -76,52 +66,12 @@ class MapReduce:
         for thread in threads:
             thread.join()
 
-    def run_reduce(self):
-        threads: list[threading.Thread] = []
+        map_write.close()
 
-        for file in os.listdir(self.output_map_directory):
-            if file.endswith("-map-output.txt"):
-                thread = threading.Thread(
-                    target=self.reduce,
-                    args=(f"{self.output_map_directory}/{file}",)
-                )
-                threads.append(thread)
-                thread.start()
+        if not os.path.exists(self.output_reduce_directory):
+            os.makedirs(self.output_reduce_directory)
 
-        for thread in threads:
-            thread.join()
+        reduced_dict = f"{self.output_reduce_directory}/reduced_dict.txt"
+        reduce_write = open(reduced_dict, "w")
 
-    def run_reduce_files(self):
-        combined_word_counts: dict = {}
-        threads: list[threading.Thread] = []
-
-        def process_file(file):
-            with open(f"{file}", "r") as f:
-                for line in f:
-                    word, counts_str = line.split(":")
-                    count = int(counts_str.strip(" []\n"))
-
-                    if word in combined_word_counts:
-                        combined_word_counts[word] += count
-                    else:
-                        combined_word_counts[word] = count
-
-        for file in os.listdir(self.output_reduce_directory):
-            if file.endswith("-reduce-output.txt"):
-                thread = threading.Thread(
-                    target=process_file,
-                    args=(f"{self.output_reduce_directory}/{file}",),
-                )
-                threads.append(thread)
-                thread.start()
-
-        for thread in threads:
-            thread.join()
-
-        output_file = os.path.join(
-            self.output_reduce_directory, "reduced-files-output.txt"
-        )
-
-        with open(output_file, "w") as f:
-            for word, counts in sorted(combined_word_counts.items()):
-                f.write(f"{word}: [{counts}]\n")
+        self.reduce(temp_map, reduce_write)
