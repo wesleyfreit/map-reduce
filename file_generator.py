@@ -38,12 +38,12 @@ class FileGenerator:
         end = start + words_per_file
         words_to_write = words[start:end]
 
+        words_per_line = 10
+
         with open(f"{self.output_directory}/file{i+1}.txt", "w") as f:
-            for count, word in enumerate(words_to_write):
-                if count != words_per_file - 1:
-                    f.write(f"{word}\n")
-                else:
-                    f.write(f"{word}")
+            for i in range(0, len(words_to_write), words_per_line):
+                line = ' '.join(words_to_write[i:i+words_per_line])
+                f.write(f"{line}\n")
 
     def rm_files(self):
         for file in os.listdir(self.output_directory):
