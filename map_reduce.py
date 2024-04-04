@@ -12,12 +12,14 @@ class MapReduce:
         self.input_directory = "./out/files"
         self.output_map_directory = "./out/map"
         self.output_reduce_directory = "./out/reduce"
+        self.lock = threading.Lock()
 
     def map(self, file: str, map_write: TextIOWrapper):
         with open(file, "r") as f:
             for line in f:
                 for word in line.split():
-                    map_write.write(f"{word}: [1]\n")
+                    with self.lock:
+                        map_write.write(f"{word}: [1]\n")
 
     def reduce(self, temp_map: str, reduce_write: TextIOWrapper):
         combined_word_counts: dict = {}
@@ -45,10 +47,11 @@ class MapReduce:
         with open(file, "r") as f:
             for line in f:
                 if self.pattern != "":
-                    if re.search(self.pattern, line):
-                        map_write.write(f"{filename} | {line.strip()}\n")
-                else:
-                    map_write.write(f"{filename} | {line.strip()}\n")
+                    with self.lock:
+                        if re.search(self.pattern, line):
+                            map_write.write(f"{filename} | {line.strip()}\n")
+                        else:
+                            map_write.write(f"{filename} | {line.strip()}\n")
 
     def reduce_grep(self, temp_map: str, reduce_write: TextIOWrapper):
         lines = []
